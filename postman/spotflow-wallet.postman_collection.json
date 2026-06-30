@@ -1,0 +1,127 @@
+{
+  "info": {
+    "name": "Spotflow Wallet",
+    "description": "Pay-In (fund) and Payout (withdraw) endpoints, plus webhook simulation including a duplicate-delivery idempotency test.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080" },
+    { "key": "user_id", "value": "1" },
+    { "key": "fund_reference", "value": "" },
+    { "key": "webhook_event_id", "value": "evt-{{$randomUUID}}" }
+  ],
+  "item": [
+    {
+      "name": "1. Fund Wallet (Pay-In)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('fund_reference', body.reference);",
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('returns PENDING transaction with a virtual account', () => {",
+              "  pm.expect(body.status).to.eql('PENDING');",
+              "  pm.expect(body.virtualAccountNumber).to.be.a('string');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/wallet/fund",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": {{user_id}},\n  \"amount\": 1000.00\n}"
+        }
+      }
+    },
+    {
+      "name": "2. Simulate Spotflow Webhook - Pay-In Successful",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "webhook-id", "value": "{{webhook_event_id}}" },
+          { "key": "webhook-timestamp", "value": "{{$timestamp}}" },
+          {
+            "key": "x-spotflow-signature",
+            "value": "skipped-in-dev-no-secret-configured",
+            "description": "Only required once spotflow.webhook-signing-secret is set on the server. Leave as-is for local/mock testing."
+          }
+        ],
+        "url": "{{base_url}}/webhooks/spotflow",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"event\": \"account_credit_successful\",\n  \"data\": {\n    \"id\": \"{{webhook_event_id}}\",\n    \"account\": {\n      \"id\": \"04a6031a-ada4-4d25-9e49-1a9648f3fc17\",\n      \"account_number\": \"7706438396\",\n      \"account_name\": \"Test Player\"\n    },\n    \"merchant_id\": \"2br9bffb-a498-497c-9cfa-fd0412aa8978\",\n    \"reference\": \"{{fund_reference}}\",\n    \"spotflow_reference\": \"SPF-CRDT-02374ba82fdd4efd875982d9f36f00f6\",\n    \"amount\": 1000.00,\n    \"fee\": 0,\n    \"currency\": \"NGN\",\n    \"type\": \"credit\",\n    \"status\": \"successful\",\n    \"source\": \"virtual_account\",\n    \"description\": \"Transfer for wallet funding\",\n    \"mode\": \"test\",\n    \"transaction_date\": \"2026-06-30T20:35:42Z\"\n  }\n}"
+        }
+      },
+      "description": "Run AFTER request 1, using its captured reference. Run TWICE in a row to confirm the idempotency gate: the second delivery should be a no-op (still 200 OK, but the wallet should only be credited once - check via your own DB or a future GET /wallet endpoint)."
+    },
+    {
+      "name": "3. Withdraw (Payout)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('returns a transaction reference and new balance', () => {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.reference).to.be.a('string');",
+              "  pm.expect(body.newBalance).to.exist;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/wallet/withdraw",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": {{user_id}},\n  \"amount\": 500.00,\n  \"bankAccountNumber\": \"0123456789\",\n  \"bankCode\": \"058\",\n  \"accountName\": \"Test Player\"\n}"
+        }
+      },
+      "description": "Uses the seeded test user (id=1) who starts with a 5000.00 NGN wallet balance from the Flyway seed migration, so this works without needing the fund flow first."
+    },
+    {
+      "name": "4. Withdraw - Insufficient Balance (expect 4xx)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('rejects withdrawal larger than balance', () => {",
+              "  pm.expect(pm.response.code).to.eql(409);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/wallet/withdraw",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"userId\": {{user_id}},\n  \"amount\": 999999.00,\n  \"bankAccountNumber\": \"0123456789\",\n  \"bankCode\": \"058\",\n  \"accountName\": \"Test Player\"\n}"
+        }
+      }
+    }
+  ]
+}
