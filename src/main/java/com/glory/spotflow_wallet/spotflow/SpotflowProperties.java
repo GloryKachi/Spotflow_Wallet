@@ -27,12 +27,6 @@ public class SpotflowProperties {
     private boolean mock;
 
     /**
-     * The merchant's main Spotflow account number, used as the `source.accountNumber`
-     * for disbursements (payouts). Required once mock=false.
-     */
-    private String payoutSourceAccountNumber;
-
-    /**
      * Shared secret used to verify the x-spotflow-signature header on incoming
      * webhooks (Standard Webhooks spec: HMAC-SHA256 over "{id}.{timestamp}.{body}").
      * This is a DIFFERENT value from the API secret key - it's generated when you
@@ -74,11 +68,4 @@ public class SpotflowProperties {
         this.mock = mock;
     }
 
-    public String getPayoutSourceAccountNumber() {
-        return payoutSourceAccountNumber;
-    }
-
-    public void setPayoutSourceAccountNumber(String payoutSourceAccountNumber) {
-        this.payoutSourceAccountNumber = payoutSourceAccountNumber;
-    }
 }

@@ -25,18 +25,15 @@ public class WalletService {
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
     private final SpotflowClient spotflowClient;
-    private final String payoutSourceAccountNumber;
 
     public WalletService(WalletRepository walletRepository,
                           TransactionRepository transactionRepository,
                           UserRepository userRepository,
-                          SpotflowClient spotflowClient,
-                          org.springframework.core.env.Environment env) {
+                          SpotflowClient spotflowClient) {
         this.walletRepository = walletRepository;
         this.transactionRepository = transactionRepository;
         this.userRepository = userRepository;
         this.spotflowClient = spotflowClient;
-        this.payoutSourceAccountNumber = env.getProperty("spotflow.payout-source-account-number", "main-account");
     }
 
     /**
@@ -121,7 +118,6 @@ public class WalletService {
                     amountInSubunits,
                     "NGN",
                     "bank_transfer",
-                    new CreateTransferRequest.Source(payoutSourceAccountNumber),
                     new CreateTransferRequest.Destination(bankAccountNumber, accountName, bankCode, null),
                     "Wallet withdrawal for user " + userId
             ));

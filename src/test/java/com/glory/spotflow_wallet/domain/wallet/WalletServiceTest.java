@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.env.Environment;
 
 import java.math.BigDecimal;
 import java.util.NoSuchElementException;
@@ -34,16 +33,13 @@ class WalletServiceTest {
     @Mock TransactionRepository transactionRepository;
     @Mock UserRepository userRepository;
     @Mock SpotflowClient spotflowClient;
-    @Mock Environment env;
 
     WalletService walletService;
 
     @BeforeEach
     void setUp() {
-        when(env.getProperty("spotflow.payout-source-account-number", "main-account"))
-                .thenReturn("main-account");
         walletService = new WalletService(
-                walletRepository, transactionRepository, userRepository, spotflowClient, env);
+                walletRepository, transactionRepository, userRepository, spotflowClient);
     }
 
     // ── fundWallet ────────────────────────────────────────────────────────────
