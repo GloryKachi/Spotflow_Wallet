@@ -6,8 +6,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
-
 import java.math.BigDecimal;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -53,11 +51,11 @@ class WebhookServiceTest {
     @Test
     void handle_skipsDuplicateDelivery_andDoesNotCreditWallet() {
         SpotflowWebhookPayload payload = creditPayload("ref-dup", "successful");
-        when(webhookEventRepository.save(any()))
-                .thenThrow(new DataIntegrityViolationException("duplicate key"));
+        when(webhookEventRepository.existsByEventId("id-003")).thenReturn(true);
 
         webhookService.handle(payload, "id-003");
 
+        verify(webhookEventRepository, never()).save(any());
         verifyNoInteractions(walletService);
     }
 

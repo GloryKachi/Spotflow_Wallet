@@ -2,6 +2,7 @@ package com.glory.spotflow_wallet.domain.wallet;
 
 import com.glory.spotflow_wallet.domain.transaction.Transaction;
 import com.glory.spotflow_wallet.domain.transaction.TransactionRepository;
+import com.glory.spotflow_wallet.domain.transaction.TransactionStatus;
 import com.glory.spotflow_wallet.domain.transaction.TransactionType;
 import com.glory.spotflow_wallet.domain.user.User;
 import com.glory.spotflow_wallet.domain.user.UserRepository;
@@ -76,10 +77,12 @@ public class WalletService {
         Transaction transaction = transactionRepository.findByReferenceForUpdate(reference)
                 .orElseThrow(() -> new NoSuchElementException("No transaction found for reference: " + reference));
 
-        if (transaction.getStatus() != com.glory.spotflow_wallet.domain.transaction.TransactionStatus.PENDING) {
-            // Already processed (defence in depth alongside the webhook_events gate) - no-op.
+        if (transaction.getStatus() == TransactionStatus.SUCCESS) {
+            // Already credited - idempotency guard.
             return;
         }
+        // Proceed for PENDING or ABANDONED; a late webhook for an ABANDONED transaction
+        // is a legitimate late-arriving confirmation and should still credit the wallet.
 
         Wallet wallet = walletRepository.findByUserIdForUpdate(transaction.getUserId())
                 .orElseGet(() -> walletRepository.save(new Wallet(transaction.getUserId(), BigDecimal.ZERO, "NGN")));
@@ -117,7 +120,7 @@ public class WalletService {
                     reference,
                     amountInSubunits,
                     "NGN",
-                    "bank_transfer",
+                    "bank",
                     new CreateTransferRequest.Destination(bankAccountNumber, accountName, bankCode, null),
                     "Wallet withdrawal for user " + userId
             ));

@@ -17,22 +17,15 @@ Set it as an environment variable before starting the app:
 
 ```bash
 export SPOTFLOW_SECRET_KEY=sk_test_your_real_key_here
-export SPOTFLOW_PAYOUT_SOURCE_ACCOUNT=your_main_spotflow_account_number
 export SPOTFLOW_WEBHOOK_SIGNING_SECRET=your_webhook_signing_secret
 ```
-
-Or copy `.env.example` to `.env` (already gitignored) and load it however your
-shell/IDE supports (e.g. IntelliJ's EnvFile plugin, or `export $(cat .env | xargs)`).
 
 `application.properties` reads it automatically via:
 ```properties
 spotflow.secret-key=${SPOTFLOW_SECRET_KEY:dummy-key}
 ```
 
-While `spotflow.mock=true` (the default), **no real key is required at all** —
-every endpoint runs fully against an in-memory `MockSpotflowClient`, so the whole
-flow can be demoed before sandbox credentials are even ready. Flip
-`spotflow.mock=false` once you have a real `sk_test_...` key.
+Set `spotflow.mock=true` in your local config for development — **no real key is required** — every endpoint runs fully against an in-memory `MockSpotflowClient`, so the full flow can be exercised before sandbox credentials are ready. When switching to real mode (`spotflow.mock=false`), a valid `SPOTFLOW_SECRET_KEY` is required.
 
 ## Running locally
 
@@ -153,12 +146,4 @@ fine for local/mock development, but this **must** be set before pointing a
 real webhook at this service, otherwise anyone who finds the URL could POST a
 fake "successful" payment event and get a wallet credited for free.
 
-## Known gaps / things to verify once full sandbox access is available
-
-- The exact webhook signing secret format (e.g. whether it has a `whsec_`-style
-  prefix some Standard Webhooks implementations use) isn't shown in the public
-  docs I had access to — worth confirming against a real test delivery once
-  the webhook URL is configured in the dashboard.
-- Bank code validation/account resolution (Spotflow's `Resolve Bank Account`
-  endpoint) isn't called before a withdrawal — in production you'd want to
-  resolve and confirm the account name before disbursing.
+Bank code validation via Spotflow's Resolve Bank Account endpoint is recommended before disbursing in production.

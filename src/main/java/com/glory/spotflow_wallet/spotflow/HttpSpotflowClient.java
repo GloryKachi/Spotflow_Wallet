@@ -5,6 +5,8 @@ import com.glory.spotflow_wallet.spotflow.dto.CreateDynamicAccountResponse;
 import com.glory.spotflow_wallet.spotflow.dto.CreateTransferRequest;
 import com.glory.spotflow_wallet.spotflow.dto.TransferDetailsResponse;
 import com.glory.spotflow_wallet.spotflow.exception.SpotflowApiException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
@@ -15,6 +17,8 @@ import org.springframework.web.client.RestClientResponseException;
  * contained here - nothing else in the app touches RestClient or knows the URL paths.
  */
 public class HttpSpotflowClient implements SpotflowClient {
+
+    private static final Logger log = LoggerFactory.getLogger(HttpSpotflowClient.class);
 
     private final RestClient restClient;
 
@@ -35,6 +39,8 @@ public class HttpSpotflowClient implements SpotflowClient {
                     .retrieve()
                     .body(CreateDynamicAccountResponse.class);
         } catch (RestClientResponseException ex) {
+            log.error("Spotflow createDynamicAccount failed ({}): {}",
+                    ex.getStatusCode().value(), ex.getResponseBodyAsString());
             throw new SpotflowApiException(
                     "Failed to create dynamic account: " + ex.getResponseBodyAsString(),
                     ex.getStatusCode().value());
@@ -50,6 +56,8 @@ public class HttpSpotflowClient implements SpotflowClient {
                     .retrieve()
                     .body(TransferDetailsResponse.class);
         } catch (RestClientResponseException ex) {
+            log.error("Spotflow createTransfer failed ({}): {}",
+                    ex.getStatusCode().value(), ex.getResponseBodyAsString());
             throw new SpotflowApiException(
                     "Failed to create transfer: " + ex.getResponseBodyAsString(),
                     ex.getStatusCode().value());
@@ -64,6 +72,8 @@ public class HttpSpotflowClient implements SpotflowClient {
                     .retrieve()
                     .body(TransferDetailsResponse.class);
         } catch (RestClientResponseException ex) {
+            log.error("Spotflow getTransferByReference({}) failed ({}): {}",
+                    reference, ex.getStatusCode().value(), ex.getResponseBodyAsString());
             throw new SpotflowApiException(
                     "Failed to fetch transfer by reference: " + ex.getResponseBodyAsString(),
                     ex.getStatusCode().value());

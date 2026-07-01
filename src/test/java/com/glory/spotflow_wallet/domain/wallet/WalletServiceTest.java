@@ -125,6 +125,22 @@ class WalletServiceTest {
     }
 
     @Test
+    void creditWalletForConfirmedPayment_creditsWallet_whenTransactionIsAbandoned() {
+        Transaction abandoned = Transaction.createPending(1L, TransactionType.FUNDING, "FUND-late", BigDecimal.valueOf(200));
+        abandoned.markAbandoned();
+        when(transactionRepository.findByReferenceForUpdate("FUND-late")).thenReturn(Optional.of(abandoned));
+        Wallet wallet = new Wallet(1L, BigDecimal.valueOf(50), "NGN");
+        when(walletRepository.findByUserIdForUpdate(1L)).thenReturn(Optional.of(wallet));
+        when(walletRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(transactionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        walletService.creditWalletForConfirmedPayment("FUND-late", "sf-ref-late", BigDecimal.valueOf(200));
+
+        assertThat(wallet.getBalance()).isEqualByComparingTo("250");
+        assertThat(abandoned.getStatus()).isEqualTo(TransactionStatus.SUCCESS);
+    }
+
+    @Test
     void creditWalletForConfirmedPayment_throwsNoSuchElementException_whenTransactionNotFound() {
         when(transactionRepository.findByReferenceForUpdate("MISSING")).thenReturn(Optional.empty());
 

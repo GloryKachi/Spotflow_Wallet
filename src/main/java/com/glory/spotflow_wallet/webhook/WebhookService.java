@@ -5,7 +5,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
@@ -25,15 +24,15 @@ public class WebhookService {
     /**
      * Idempotency gate + dispatch.
      *
-     * Step 1 (the gate): try to insert a row keyed on the delivery's idempotency
-     * key (Spotflow's `webhook-id` header per the Standard Webhooks spec). The
-     * unique constraint on webhook_events.event_id means a duplicate delivery
-     * (e.g. Spotflow retrying because our first 200 OK got lost in transit)
-     * fails this insert and we bail out *before* touching the wallet - so the
-     * balance is only ever credited once per real-world event, no matter how
-     * many times the HTTP request is replayed.
+     * The gate is two-layered:
+     * 1. Fast read: existsByEventId short-circuits retries without touching a write path.
+     * 2. Insert + unique constraint: the DB constraint is the authoritative guard against
+     *    concurrent duplicate deliveries that race past the read check simultaneously.
+     *    DataIntegrityViolationException from the insert means a concurrent thread won
+     *    the race, so we skip here too.
      *
-     * Step 2: only after the gate passes do we act on the event.
+     * Both paths are called directly on the repository (not via a self-call), so Spring's
+     * proxy-based @Transactional applies correctly to each operation.
      */
     public void handle(SpotflowWebhookPayload payload, String idempotencyKey) {
         if (payload == null || payload.data() == null || idempotencyKey == null) {
@@ -41,8 +40,19 @@ public class WebhookService {
             return;
         }
 
-        if (!tryRecordEventOnce(payload, idempotencyKey)) {
+        if (webhookEventRepository.existsByEventId(idempotencyKey)) {
             log.info("Duplicate webhook delivery for id {} - skipping (already processed)", idempotencyKey);
+            return;
+        }
+
+        try {
+            webhookEventRepository.save(new WebhookEvent(
+                    idempotencyKey,
+                    payload.event(),
+                    payload.data().reference()
+            ));
+        } catch (DataIntegrityViolationException duplicate) {
+            log.info("Duplicate webhook delivery for id {} - skipping (concurrent duplicate)", idempotencyKey);
             return;
         }
 
@@ -60,19 +70,5 @@ public class WebhookService {
         BigDecimal amount = data.amount();
         walletService.creditWalletForConfirmedPayment(data.reference(), data.spotflow_reference(), amount);
         log.info("Wallet credited for reference {} amount {}", data.reference(), amount);
-    }
-
-    @Transactional
-    protected boolean tryRecordEventOnce(SpotflowWebhookPayload payload, String idempotencyKey) {
-        try {
-            webhookEventRepository.save(new WebhookEvent(
-                    idempotencyKey,
-                    payload.event(),
-                    payload.data().reference()
-            ));
-            return true;
-        } catch (DataIntegrityViolationException duplicate) {
-            return false;
-        }
     }
 }

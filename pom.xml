@@ -99,6 +99,7 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
+					<useTestClasspath>false</useTestClasspath>
 					<excludes>
 						<exclude>
 							<groupId>org.projectlombok</groupId>
